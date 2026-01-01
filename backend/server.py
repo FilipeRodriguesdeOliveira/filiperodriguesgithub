@@ -1,72 +1,486 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timezone
-
+from datetime import datetime, timezone, timedelta
+import jwt
+import bcrypt
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ.get('DB_NAME', 'test_database')]
 
-# Create the main app without a prefix
+# JWT Configuration
+JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
+JWT_ALGORITHM = 'HS256'
+JWT_EXPIRATION_HOURS = 24
+
+# LLM Key
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+
+# Create the main app
 app = FastAPI()
-
-# Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+security = HTTPBearer()
 
+# Helper Functions
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+def create_token(user_id: str) -> str:
+    payload = {
+        'user_id': user_id,
+        'exp': datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get('user_id')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return user_id
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Pydantic Models
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    email: str
+    name: str
+    created_at: str
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserResponse
+
+class ConnectionCreate(BaseModel):
+    platform: str  # 'meta', 'google_ads', 'ga4', 'website'
+    credentials: Dict[str, Any]
+
+class Connection(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    platform: str
+    status: str  # 'connected', 'disconnected'
+    last_sync: Optional[str] = None
+    created_at: str
+
+class GoalCreate(BaseModel):
+    objective: str  # 'leads', 'brand', 'followers', 'sales'
+    target_value: Optional[int] = None
+    description: Optional[str] = None
+
+class Goal(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    objective: str
+    target_value: Optional[int] = None
+    description: Optional[str] = None
+    status: str  # 'active', 'paused'
+    created_at: str
+
+class DataCollection(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    platform: str
+    data: Dict[str, Any]
+    collected_at: str
+
+class AIAnalysisRequest(BaseModel):
+    type: str  # 'brain', 'niche', 'strategy', 'campaign', 'metrics', 'optimizer', 'crm'
+    context: Optional[Dict[str, Any]] = None
+
+class AIAnalysis(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    type: str
+    analysis: str
+    recommendations: List[str]
+    created_at: str
+
+class Campaign(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    name: str
+    platform: str
+    objective: str
+    structure: Dict[str, Any]
+    status: str  # 'draft', 'active', 'paused', 'completed'
+    created_at: str
+
+class Metric(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    campaign_id: Optional[str] = None
+    metrics: Dict[str, Any]
+    recorded_at: str
+
+# Routes
+@api_router.post("/auth/register", response_model=AuthResponse)
+async def register(user_data: UserRegister):
+    # Check if user exists
+    existing_user = await db.users.find_one({'email': user_data.email}, {'_id': 0})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
     
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class StatusCheckCreate(BaseModel):
-    client_name: str
-
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
+    # Create user
+    user_id = str(uuid.uuid4())
+    user_doc = {
+        'id': user_id,
+        'email': user_data.email,
+        'password': hash_password(user_data.password),
+        'name': user_data.name,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
     
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
+    # Create token
+    token = create_token(user_id)
     
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+    user_response = UserResponse(
+        id=user_id,
+        email=user_data.email,
+        name=user_data.name,
+        created_at=user_doc['created_at']
+    )
+    
+    return AuthResponse(token=token, user=user_response)
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+@api_router.post("/auth/login", response_model=AuthResponse)
+async def login(credentials: UserLogin):
+    user = await db.users.find_one({'email': credentials.email}, {'_id': 0})
+    if not user or not verify_password(credentials.password, user['password']):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
+    token = create_token(user['id'])
     
-    return status_checks
+    user_response = UserResponse(
+        id=user['id'],
+        email=user['email'],
+        name=user['name'],
+        created_at=user['created_at']
+    )
+    
+    return AuthResponse(token=token, user=user_response)
 
-# Include the router in the main app
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_me(user_id: str = Depends(get_current_user)):
+    user = await db.users.find_one({'id': user_id}, {'_id': 0, 'password': 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserResponse(**user)
+
+# Connections
+@api_router.post("/connections", response_model=Connection)
+async def create_connection(conn_data: ConnectionCreate, user_id: str = Depends(get_current_user)):
+    conn_id = str(uuid.uuid4())
+    connection_doc = {
+        'id': conn_id,
+        'user_id': user_id,
+        'platform': conn_data.platform,
+        'credentials': conn_data.credentials,
+        'status': 'connected',
+        'last_sync': None,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.connections.insert_one(connection_doc)
+    
+    # Trigger mock data collection
+    asyncio.create_task(collect_mock_data(user_id, conn_data.platform))
+    
+    return Connection(
+        id=conn_id,
+        user_id=user_id,
+        platform=conn_data.platform,
+        status='connected',
+        last_sync=None,
+        created_at=connection_doc['created_at']
+    )
+
+@api_router.get("/connections", response_model=List[Connection])
+async def get_connections(user_id: str = Depends(get_current_user)):
+    connections = await db.connections.find({'user_id': user_id}, {'_id': 0, 'credentials': 0}).to_list(100)
+    return [Connection(**conn) for conn in connections]
+
+# Goals
+@api_router.post("/goals", response_model=Goal)
+async def create_goal(goal_data: GoalCreate, user_id: str = Depends(get_current_user)):
+    goal_id = str(uuid.uuid4())
+    goal_doc = {
+        'id': goal_id,
+        'user_id': user_id,
+        'objective': goal_data.objective,
+        'target_value': goal_data.target_value,
+        'description': goal_data.description,
+        'status': 'active',
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.goals.insert_one(goal_doc)
+    return Goal(**goal_doc)
+
+@api_router.get("/goals", response_model=List[Goal])
+async def get_goals(user_id: str = Depends(get_current_user)):
+    goals = await db.goals.find({'user_id': user_id}, {'_id': 0}).to_list(100)
+    return [Goal(**goal) for goal in goals]
+
+# Data Collection
+async def collect_mock_data(user_id: str, platform: str):
+    """Mock data collection for demonstration"""
+    mock_data = {
+        'meta': {
+            'followers': 15420,
+            'engagement_rate': 3.2,
+            'reach': 45000,
+            'top_posts': ['Post about new product', 'Behind the scenes']
+        },
+        'google_ads': {
+            'impressions': 125000,
+            'clicks': 2500,
+            'cpc': 1.25,
+            'conversions': 45
+        },
+        'ga4': {
+            'users': 8500,
+            'sessions': 12000,
+            'bounce_rate': 42.5,
+            'avg_session_duration': 185
+        },
+        'website': {
+            'pages': 25,
+            'products': 12,
+            'categories': ['Electronics', 'Accessories']
+        }
+    }
+    
+    data_doc = {
+        'id': str(uuid.uuid4()),
+        'user_id': user_id,
+        'platform': platform,
+        'data': mock_data.get(platform, {}),
+        'collected_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.data_collection.insert_one(data_doc)
+    
+    # Update connection last_sync
+    await db.connections.update_one(
+        {'user_id': user_id, 'platform': platform},
+        {'$set': {'last_sync': datetime.now(timezone.utc).isoformat()}}
+    )
+
+@api_router.get("/data-collection", response_model=List[DataCollection])
+async def get_data_collection(user_id: str = Depends(get_current_user)):
+    data = await db.data_collection.find({'user_id': user_id}, {'_id': 0}).to_list(100)
+    return [DataCollection(**d) for d in data]
+
+# AI Analysis
+@api_router.post("/ai/analyze", response_model=AIAnalysis)
+async def analyze_with_ai(request: AIAnalysisRequest, user_id: str = Depends(get_current_user)):
+    # Get user data
+    connections = await db.connections.find({'user_id': user_id}, {'_id': 0}).to_list(100)
+    goals = await db.goals.find({'user_id': user_id}, {'_id': 0}).to_list(100)
+    data_collection = await db.data_collection.find({'user_id': user_id}, {'_id': 0}).to_list(100)
+    
+    # AI Prompts based on type
+    ai_prompts = {
+        'brain': """Você é o IA Cérebro do ELION MARKET 360 - o estrategista principal. 
+        Analise os dados fornecidos e decida quais ações as outras IAs devem executar.
+        Classifique o negócio (B2C/B2B/B2G), defina prioridades e avalie riscos.
+        
+        Dados: {data}
+        Objetivos: {goals}
+        
+        Forneça uma análise estratégica e recomendações específicas.""",
+        'niche': """Você é a IA de Análise de Nicho & Público.
+        Identifique o produto, crie personas reais e defina o ICP (cliente ideal).
+        
+        Dados do site e redes: {data}
+        
+        Forneça análise detalhada do nicho e público-alvo.""",
+        'strategy': """Você é a IA de Estratégia de Marketing.
+        Decida o tipo de campanha (leads/marca/seguidores), defina funil e escolha canais.
+        
+        Objetivos: {goals}
+        Dados disponíveis: {data}
+        
+        Forneça estratégia completa de marketing.""",
+        'campaign': """Você é a IA de Criação de Campanhas.
+        Gere estrutura de campanhas, grupos, segmentações e cópias.
+        
+        Plataforma: {platform}
+        Objetivo: {objective}
+        Dados: {data}
+        
+        Forneça estrutura completa de campanha.""",
+        'metrics': """Você é a IA Analista de Métricas.
+        Identifique CPC alto, leads ruins, público errado e aponte causas raiz.
+        
+        Métricas: {metrics}
+        
+        Forneça análise detalhada e identifique problemas.""",
+        'optimizer': """Você é a IA Otimizadora.
+        Ajuste orçamento, público e criativos. Pause o que não performa e escale o que funciona.
+        
+        Campanhas atuais: {campaigns}
+        Métricas: {metrics}
+        
+        Forneça recomendações de otimização.""",
+        'crm': """Você é a IA de Atendimento e CRM.
+        Classifique leads, faça pontuação e sugira ações de atendimento.
+        
+        Leads: {leads}
+        
+        Forneça classificação e estratégia de atendimento."""
+    }
+    
+    context_str = f"""Conexões: {connections}
+Objetivos: {goals}
+Dados Coletados: {data_collection}
+Contexto Adicional: {request.context}"""
+    
+    prompt = ai_prompts.get(request.type, ai_prompts['brain']).format(
+        data=data_collection,
+        goals=goals,
+        platform=request.context.get('platform', 'Meta') if request.context else 'Meta',
+        objective=request.context.get('objective', 'leads') if request.context else 'leads',
+        metrics=request.context.get('metrics', {}) if request.context else {},
+        campaigns=request.context.get('campaigns', []) if request.context else [],
+        leads=request.context.get('leads', []) if request.context else []
+    )
+    
+    # Call AI
+    session_id = f"{user_id}_{request.type}_{str(uuid.uuid4())[:8]}"
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=session_id,
+        system_message=prompt
+    ).with_model("openai", "gpt-5.2")
+    
+    user_message = UserMessage(text=f"Analise os dados e forneça insights e recomendações: {context_str}")
+    response = await chat.send_message(user_message)
+    
+    # Parse recommendations (simple split)
+    recommendations = [line.strip() for line in response.split('\n') if line.strip().startswith(('-', '•', '*'))]
+    if not recommendations:
+        recommendations = ['Análise completa disponível no texto principal']
+    
+    # Save analysis
+    analysis_id = str(uuid.uuid4())
+    analysis_doc = {
+        'id': analysis_id,
+        'user_id': user_id,
+        'type': request.type,
+        'analysis': response,
+        'recommendations': recommendations[:5],
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.ai_analyses.insert_one(analysis_doc)
+    
+    return AIAnalysis(**analysis_doc)
+
+@api_router.get("/ai/analyses", response_model=List[AIAnalysis])
+async def get_analyses(ai_type: Optional[str] = None, user_id: str = Depends(get_current_user)):
+    query = {'user_id': user_id}
+    if ai_type:
+        query['type'] = ai_type
+    analyses = await db.ai_analyses.find(query, {'_id': 0}).sort('created_at', -1).to_list(50)
+    return [AIAnalysis(**a) for a in analyses]
+
+# Campaigns
+@api_router.post("/campaigns", response_model=Campaign)
+async def create_campaign(campaign_data: Dict[str, Any], user_id: str = Depends(get_current_user)):
+    campaign_id = str(uuid.uuid4())
+    campaign_doc = {
+        'id': campaign_id,
+        'user_id': user_id,
+        'name': campaign_data.get('name', 'Nova Campanha'),
+        'platform': campaign_data.get('platform', 'meta'),
+        'objective': campaign_data.get('objective', 'leads'),
+        'structure': campaign_data.get('structure', {}),
+        'status': 'draft',
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.campaigns.insert_one(campaign_doc)
+    return Campaign(**campaign_doc)
+
+@api_router.get("/campaigns", response_model=List[Campaign])
+async def get_campaigns(user_id: str = Depends(get_current_user)):
+    campaigns = await db.campaigns.find({'user_id': user_id}, {'_id': 0}).to_list(100)
+    return [Campaign(**c) for c in campaigns]
+
+# Metrics
+@api_router.post("/metrics", response_model=Metric)
+async def record_metric(metric_data: Dict[str, Any], user_id: str = Depends(get_current_user)):
+    metric_id = str(uuid.uuid4())
+    metric_doc = {
+        'id': metric_id,
+        'user_id': user_id,
+        'campaign_id': metric_data.get('campaign_id'),
+        'metrics': metric_data.get('metrics', {}),
+        'recorded_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.metrics.insert_one(metric_doc)
+    return Metric(**metric_doc)
+
+@api_router.get("/metrics", response_model=List[Metric])
+async def get_metrics(user_id: str = Depends(get_current_user)):
+    metrics = await db.metrics.find({'user_id': user_id}, {'_id': 0}).sort('recorded_at', -1).to_list(100)
+    return [Metric(**m) for m in metrics]
+
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
+    """Get overview stats for dashboard"""
+    connections_count = await db.connections.count_documents({'user_id': user_id, 'status': 'connected'})
+    campaigns_count = await db.campaigns.count_documents({'user_id': user_id})
+    active_campaigns = await db.campaigns.count_documents({'user_id': user_id, 'status': 'active'})
+    
+    # Get latest metrics
+    latest_metrics = await db.metrics.find({'user_id': user_id}, {'_id': 0}).sort('recorded_at', -1).limit(1).to_list(1)
+    
+    return {
+        'connections': connections_count,
+        'total_campaigns': campaigns_count,
+        'active_campaigns': active_campaigns,
+        'latest_metrics': latest_metrics[0] if latest_metrics else {}
+    }
+
+# Include router
 app.include_router(api_router)
 
 app.add_middleware(
@@ -77,7 +491,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
