@@ -477,6 +477,148 @@ async def get_metrics(user_id: str = Depends(get_current_user)):
     metrics = await db.metrics.find({'user_id': user_id}, {'_id': 0}).sort('recorded_at', -1).to_list(100)
     return [Metric(**m) for m in metrics]
 
+# OAuth Platform Integrations
+oauth_service = OAuthService(db)
+
+@api_router.get("/oauth/platforms")
+async def get_available_platforms():
+    \"\"\"List available OAuth platforms for integration\"\"\"
+    from oauth_config import OAUTH_PLATFORMS
+    return {
+        'platforms': [
+            {
+                'id': key,
+                'name': config['name'],
+                'configured': bool(config['client_id']),
+                'scopes': config['scopes']
+            }
+            for key, config in OAUTH_PLATFORMS.items()
+        ]
+    }
+
+@api_router.get("/oauth/{platform}/authorize")
+async def authorize_platform(platform: str, user_id: str = Depends(get_current_user)):
+    \"\"\"Initiate OAuth flow for platform\"\"\"
+    from oauth_config import OAUTH_PLATFORMS
+    
+    if platform not in OAUTH_PLATFORMS:
+        raise HTTPException(status_code=400, detail=f\"Platform {platform} not supported\")
+    
+    # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    # Use environment variable for callback URL
+    callback_url = os.environ.get('BACKEND_URL', 'http://localhost:8001') + f\"/api/oauth/{platform}/callback\"
+    
+    auth_url = oauth_service.get_auth_url(platform, user_id, callback_url)
+    
+    if not auth_url:
+        raise HTTPException(status_code=500, detail=f\"Platform {platform} not configured. Please add OAuth credentials.\")
+    
+    return {'authorization_url': auth_url}
+
+@api_router.get(\"/oauth/{platform}/callback\")
+async def oauth_callback(platform: str, code: str, state: str):
+    \"\"\"Handle OAuth callback from platform\"\"\"
+    # Verify state token
+    state_data = oauth_service.verify_state_token(state)
+    if not state_data:
+        raise HTTPException(status_code=400, detail=\"Invalid state token\")
+    
+    user_id = state_data['user_id']
+    
+    # Exchange code for token
+    callback_url = os.environ.get('BACKEND_URL', 'http://localhost:8001') + f\"/api/oauth/{platform}/callback\"
+    token_data = await oauth_service.exchange_code_for_token(platform, code, callback_url)
+    
+    if not token_data:
+        raise HTTPException(status_code=400, detail=\"Failed to exchange authorization code\")
+    
+    # Get user info from platform
+    user_info = await oauth_service.get_user_info(platform, token_data['access_token'])
+    
+    if not user_info:
+        raise HTTPException(status_code=400, detail=\"Failed to fetch user information\")
+    
+    # Store connection
+    connection_id = await oauth_service.store_connection(user_id, platform, token_data, user_info)
+    
+    # Trigger data collection in background
+    asyncio.create_task(collect_platform_data(user_id, platform))
+    
+    return {
+        'status': 'success',
+        'platform': platform,
+        'connection_id': connection_id,
+        'user_info': {
+            'id': user_info.get('id'),
+            'name': user_info.get('name'),
+            'email': user_info.get('email')
+        }
+    }
+
+@api_router.get(\"/oauth/connections\")
+async def get_user_connections(user_id: str = Depends(get_current_user)):
+    \"\"\"Get all platform connections for user\"\"\"
+    connections = await oauth_service.get_connections(user_id)
+    return {'connections': connections}
+
+@api_router.delete(\"/oauth/{platform}\")
+async def disconnect_platform(platform: str, user_id: str = Depends(get_current_user)):
+    \"\"\"Disconnect a platform integration\"\"\"
+    success = await oauth_service.disconnect_platform(user_id, platform)
+    if not success:
+        raise HTTPException(status_code=404, detail=\"Connection not found\")
+    return {'status': 'disconnected', 'platform': platform}
+
+@api_router.post(\"/oauth/{platform}/sync\")
+async def sync_platform_data(platform: str, user_id: str = Depends(get_current_user)):
+    \"\"\"Manually trigger data sync for platform\"\"\"
+    token = await oauth_service.get_decrypted_token(user_id, platform)
+    if not token:
+        raise HTTPException(status_code=404, detail=\"Platform not connected\")
+    
+    data = await oauth_service.fetch_platform_data(platform, token, user_id)
+    
+    # Store collected data
+    data_doc = {
+        'id': str(uuid.uuid4()),
+        'user_id': user_id,
+        'platform': platform,
+        'data': data,
+        'collected_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.platform_data.insert_one(data_doc)
+    
+    # Update last_synced timestamp
+    await db.platform_connections.update_one(
+        {'user_id': user_id, 'platform': platform},
+        {'$set': {'last_synced': datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {'status': 'synced', 'platform': platform, 'data': data}
+
+async def collect_platform_data(user_id: str, platform: str):
+    \"\"\"Background task to collect data from platform\"\"\"
+    try:
+        token = await oauth_service.get_decrypted_token(user_id, platform)
+        if token:
+            data = await oauth_service.fetch_platform_data(platform, token, user_id)
+            
+            data_doc = {
+                'id': str(uuid.uuid4()),
+                'user_id': user_id,
+                'platform': platform,
+                'data': data,
+                'collected_at': datetime.now(timezone.utc).isoformat()
+            }
+            await db.platform_data.insert_one(data_doc)
+            
+            await db.platform_connections.update_one(
+                {'user_id': user_id, 'platform': platform},
+                {'$set': {'last_synced': datetime.now(timezone.utc).isoformat()}}
+            )
+    except Exception as e:
+        logger.error(f\"Background data collection error: {str(e)}\")
+
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
     """Get overview stats for dashboard"""
