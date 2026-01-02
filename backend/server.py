@@ -561,9 +561,9 @@ async def get_user_connections(user_id: str = Depends(get_current_user)):
     connections = await oauth_service.get_connections(user_id)
     return {'connections': connections}
 
-@api_router.delete(\"/oauth/{platform}\")
+@api_router.delete("/oauth/{platform}")
 async def disconnect_platform(platform: str, user_id: str = Depends(get_current_user)):
-    \"\"\"Disconnect a platform integration\"\"\"
+    """Disconnect a platform integration"""
     success = await oauth_service.disconnect_platform(user_id, platform)
     if not success:
         raise HTTPException(status_code=404, detail=\"Connection not found\")
