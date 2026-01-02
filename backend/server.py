@@ -566,7 +566,7 @@ async def disconnect_platform(platform: str, user_id: str = Depends(get_current_
     """Disconnect a platform integration"""
     success = await oauth_service.disconnect_platform(user_id, platform)
     if not success:
-        raise HTTPException(status_code=404, detail=\"Connection not found\")
+        raise HTTPException(status_code=404, detail="Connection not found")
     return {'status': 'disconnected', 'platform': platform}
 
 @api_router.post("/oauth/{platform}/sync")
