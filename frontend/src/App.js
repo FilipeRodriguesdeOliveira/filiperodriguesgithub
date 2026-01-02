@@ -16,6 +16,7 @@ import DataCollectionPage from "@/pages/DataCollectionPage";
 import AIBrainPage from "@/pages/AIBrainPage";
 import AISpecialistsPage from "@/pages/AISpecialistsPage";
 import CampaignsPage from "@/pages/CampaignsPage";
+import PlatformIntegrationsPage from "@/pages/PlatformIntegrationsPage";
 
 function App() {
   return (
