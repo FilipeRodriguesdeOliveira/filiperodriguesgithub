@@ -555,9 +555,9 @@ async def oauth_callback(platform: str, code: str, state: str):
         }
     }
 
-@api_router.get(\"/oauth/connections\")
+@api_router.get("/oauth/connections")
 async def get_user_connections(user_id: str = Depends(get_current_user)):
-    \"\"\"Get all platform connections for user\"\"\"
+    """Get all platform connections for user"""
     connections = await oauth_service.get_connections(user_id)
     return {'connections': connections}
 
