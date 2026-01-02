@@ -505,9 +505,12 @@ async def authorize_platform(platform: str, user_id: str = Depends(get_current_u
     if platform not in OAUTH_PLATFORMS:
         raise HTTPException(status_code=400, detail=f"Platform {platform} not supported")
     
-    # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    # Use environment variable for callback URL
-    callback_url = os.environ.get('BACKEND_URL', 'http://localhost:8001') + f"/api/oauth/{platform}/callback"
+    # Use environment variable for callback URL (REQUIRED - no fallback allowed)
+    backend_url = os.environ.get('BACKEND_URL')
+    if not backend_url:
+        raise HTTPException(status_code=500, detail="BACKEND_URL not configured")
+    
+    callback_url = backend_url + f"/api/oauth/{platform}/callback"
     
     auth_url = oauth_service.get_auth_url(platform, user_id, callback_url)
     
