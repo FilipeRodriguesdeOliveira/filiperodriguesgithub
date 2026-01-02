@@ -574,7 +574,7 @@ async def sync_platform_data(platform: str, user_id: str = Depends(get_current_u
     """Manually trigger data sync for platform"""
     token = await oauth_service.get_decrypted_token(user_id, platform)
     if not token:
-        raise HTTPException(status_code=404, detail=\"Platform not connected\")
+        raise HTTPException(status_code=404, detail="Platform not connected")
     
     data = await oauth_service.fetch_platform_data(platform, token, user_id)
     
