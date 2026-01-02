@@ -494,6 +494,12 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
 # Include router
 app.include_router(api_router)
 
+# Health check endpoint at root level (required for Kubernetes)
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Kubernetes liveness/readiness probes"""
+    return {"status": "healthy", "service": "elion-market-360"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
