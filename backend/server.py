@@ -617,7 +617,7 @@ async def collect_platform_data(user_id: str, platform: str):
                 {'$set': {'last_synced': datetime.now(timezone.utc).isoformat()}}
             )
     except Exception as e:
-        logger.error(f\"Background data collection error: {str(e)}\")
+        logger.error(f"Background data collection error: {str(e)}")
 
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
