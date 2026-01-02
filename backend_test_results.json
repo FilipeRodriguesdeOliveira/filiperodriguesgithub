@@ -1,0 +1,160 @@
+{
+  "summary": {
+    "total_tests": 25,
+    "passed_tests": 18,
+    "success_rate": 72.0,
+    "timestamp": "2026-01-02T02:28:25.311008"
+  },
+  "detailed_results": [
+    {
+      "test": "Backend Health Check",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-02T02:24:16.525476"
+    },
+    {
+      "test": "User Registration",
+      "success": true,
+      "details": "User ID: fc74fa39-0446-4dff-b74f-a136766f3978",
+      "timestamp": "2026-01-02T02:24:16.984938"
+    },
+    {
+      "test": "Get User Profile",
+      "success": true,
+      "details": "Email: test_1767320656@elion.com",
+      "timestamp": "2026-01-02T02:24:17.030708"
+    },
+    {
+      "test": "Create Connection - meta",
+      "success": true,
+      "details": "Connection ID: 0a62604a-bc9b-4124-870b-a63f25509b0c",
+      "timestamp": "2026-01-02T02:24:17.129373"
+    },
+    {
+      "test": "Create Connection - google_ads",
+      "success": true,
+      "details": "Connection ID: f911450b-8e47-4c9b-a80d-eee96fcc7939",
+      "timestamp": "2026-01-02T02:24:17.184354"
+    },
+    {
+      "test": "Create Connection - ga4",
+      "success": true,
+      "details": "Connection ID: bdc7d914-589f-4292-89e2-400cd8b0227a",
+      "timestamp": "2026-01-02T02:24:17.226537"
+    },
+    {
+      "test": "Create Connection - website",
+      "success": true,
+      "details": "Connection ID: f9876c0f-c010-44a3-8db9-ed41721b2ccd",
+      "timestamp": "2026-01-02T02:24:17.271213"
+    },
+    {
+      "test": "Get Connections",
+      "success": true,
+      "details": "Found 4 connections",
+      "timestamp": "2026-01-02T02:24:17.345691"
+    },
+    {
+      "test": "Create Goal - leads",
+      "success": true,
+      "details": "Goal ID: 42c66aec-4194-4451-af48-8c5083c1da84",
+      "timestamp": "2026-01-02T02:24:17.418355"
+    },
+    {
+      "test": "Create Goal - brand",
+      "success": true,
+      "details": "Goal ID: 6d4938a4-4d6c-4080-9d8e-85bacf363f3c",
+      "timestamp": "2026-01-02T02:24:17.473204"
+    },
+    {
+      "test": "Create Goal - followers",
+      "success": true,
+      "details": "Goal ID: 38f55d4f-2e1d-4174-9151-edff793a9c1a",
+      "timestamp": "2026-01-02T02:24:17.512239"
+    },
+    {
+      "test": "Create Goal - sales",
+      "success": true,
+      "details": "Goal ID: dded0a09-aa95-4a3f-b042-44427880e805",
+      "timestamp": "2026-01-02T02:24:17.584037"
+    },
+    {
+      "test": "Get Goals",
+      "success": true,
+      "details": "Found 4 goals",
+      "timestamp": "2026-01-02T02:24:17.663495"
+    },
+    {
+      "test": "Get Data Collection",
+      "success": true,
+      "details": "Found 4 data entries",
+      "timestamp": "2026-01-02T02:24:17.717400"
+    },
+    {
+      "test": "AI Analysis - brain",
+      "success": false,
+      "details": "Request failed: HTTPSConnectionPool(host='smartcampaigns-1.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-02T02:24:47.792909"
+    },
+    {
+      "test": "AI Analysis - niche",
+      "success": false,
+      "details": "Request failed: HTTPSConnectionPool(host='smartcampaigns-1.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-02T02:25:17.879118"
+    },
+    {
+      "test": "AI Analysis - strategy",
+      "success": false,
+      "details": "Request failed: HTTPSConnectionPool(host='smartcampaigns-1.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-02T02:25:47.985305"
+    },
+    {
+      "test": "AI Analysis - campaign",
+      "success": false,
+      "details": "Request failed: HTTPSConnectionPool(host='smartcampaigns-1.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-02T02:26:18.074734"
+    },
+    {
+      "test": "AI Analysis - metrics",
+      "success": false,
+      "details": "Request failed: HTTPSConnectionPool(host='smartcampaigns-1.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-02T02:26:48.179869"
+    },
+    {
+      "test": "AI Analysis - optimizer",
+      "success": false,
+      "details": "Request failed: HTTPSConnectionPool(host='smartcampaigns-1.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-02T02:27:18.273352"
+    },
+    {
+      "test": "AI Analysis - crm",
+      "success": false,
+      "details": "Request failed: HTTPSConnectionPool(host='smartcampaigns-1.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)",
+      "timestamp": "2026-01-02T02:27:48.349731"
+    },
+    {
+      "test": "Get Analyses",
+      "success": true,
+      "details": "Found 6 analyses",
+      "timestamp": "2026-01-02T02:27:55.770360"
+    },
+    {
+      "test": "Create Campaign",
+      "success": true,
+      "details": "Campaign ID: 59925485-7cdd-406c-af70-53ae35ebfc41",
+      "timestamp": "2026-01-02T02:28:25.162911"
+    },
+    {
+      "test": "Get Campaigns",
+      "success": true,
+      "details": "Found 1 campaigns",
+      "timestamp": "2026-01-02T02:28:25.266719"
+    },
+    {
+      "test": "Dashboard Stats",
+      "success": true,
+      "details": "Stats: {'connections': 4, 'total_campaigns': 1, 'active_campaigns': 0, 'latest_metrics': {}}",
+      "timestamp": "2026-01-02T02:28:25.310728"
+    }
+  ]
+}
