@@ -15,6 +15,8 @@ import bcrypt
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import asyncio
 from oauth_service import OAuthService
+from ai_engines import MarketIntelligenceEngine, VirtualCMO, CampaignExecutor
+from ai_advanced import OptimizationEngine, IntelligentCRM, OmnichannelAssistant
 
 # Setup logger
 logger = logging.getLogger(__name__)
