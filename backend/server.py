@@ -638,7 +638,47 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
         'latest_metrics': latest_metrics[0] if latest_metrics else {}
     }
 
-# Include router
+# Initialize AI Engines
+market_intelligence = MarketIntelligenceEngine(db)
+virtual_cmo = VirtualCMO(db)
+campaign_executor = CampaignExecutor(db)
+optimization_engine = OptimizationEngine(db)
+intelligent_crm = IntelligentCRM(db)
+omnichannel_assistant = OmnichannelAssistant(db)
+
+# CAMADA 2: Motor de Intelig\u00eancia de Mercado
+@api_router.post(\"/ai/market-intelligence\")
+async def run_market_intelligence(user_id: str = Depends(get_current_user)):
+    \"\"\"Executa an\u00e1lise completa do neg\u00f3cio\"\"\"
+    # Coletar dados de todas as conex\u00f5es
+    connections = await db.platform_connections.find({'user_id': user_id}, {'_id': 0}).to_list(100)\n    data_collection = await db.platform_data.find({'user_id': user_id}, {'_id': 0}).to_list(100)\n    \n    connections_data = {\n        'connections': connections,\n        'data': data_collection\n    }\n    \n    analysis = await market_intelligence.analyze_business(user_id, connections_data)\n    \n    return {'status': 'success', 'analysis': analysis}\n\n# CAMADA 3: CMO Virtual\n@api_router.post(\"/ai/create-strategy\")
+async def create_marketing_strategy(user_id: str = Depends(get_current_user)):
+    \"\"\"Cria estrat\u00e9gia completa de marketing\"\"\"
+    # Buscar \u00faltima an\u00e1lise\n    analysis = await db.business_intelligence.find_one(\n        {'user_id': user_id}, \n        {'_id': 0}, \n        sort=[('created_at', -1)]\n    )\n    \n    if not analysis:\n        raise HTTPException(status_code=404, detail=\"Execute an\u00e1lise de mercado primeiro\")\n    \n    strategy = await virtual_cmo.create_strategy(user_id, analysis['analysis'])\n    \n    return {'status': 'success', 'strategy': strategy}\n\n# CAMADA 4: Executor de Campanhas\n@api_router.post(\"/ai/create-campaigns\")
+async def create_ai_campaigns(user_id: str = Depends(get_current_user)):
+    \"\"\"Cria campanhas prontas para aprova\u00e7\u00e3o\"\"\"
+    # Buscar \u00faltima estrat\u00e9gia\n    strategy_doc = await db.marketing_strategies.find_one(\n        {'user_id': user_id}, \n        {'_id': 0}, \n        sort=[('created_at', -1)]\n    )\n    \n    if not strategy_doc:\n        raise HTTPException(status_code=404, detail=\"Crie estrat\u00e9gia primeiro\")\n    \n    campaigns = await campaign_executor.create_campaigns(user_id, strategy_doc['strategy'])\n    \n    return {'status': 'success', 'campaigns': campaigns, 'total': len(campaigns)}\n\n@api_router.get(\"/ai/campaigns/pending\")
+async def get_pending_campaigns(user_id: str = Depends(get_current_user)):
+    \"\"\"Lista campanhas aguardando aprova\u00e7\u00e3o\"\"\"
+    campaigns = await db.ai_campaigns.find(\n        {'user_id': user_id, 'status': 'pending_approval'}, \n        {'_id': 0}\n    ).to_list(100)\n    \n    return {'campaigns': campaigns}\n\n@api_router.post(\"/ai/campaigns/{campaign_id}/approve\")
+async def approve_campaign(campaign_id: str, user_id: str = Depends(get_current_user)):
+    \"\"\"Aprova campanha para execu\u00e7\u00e3o\"\"\"
+    result = await db.ai_campaigns.update_one(\n        {'user_id': user_id, 'campaign.id': campaign_id},\n        {'$set': {'status': 'approved', 'approved_at': datetime.now(timezone.utc).isoformat()}}\n    )\n    \n    if result.modified_count == 0:\n        raise HTTPException(status_code=404, detail=\"Campanha n\u00e3o encontrada\")\n    \n    return {'status': 'approved', 'campaign_id': campaign_id}\n\n# CAMADA 5: Otimiza\u00e7\u00e3o Cont\u00ednua\n@api_router.post(\"/ai/optimize\")
+async def run_optimization(user_id: str = Depends(get_current_user)):
+    \"\"\"Executa otimiza\u00e7\u00e3o autom\u00e1tica\"\"\"
+    # Coletar m\u00e9tricas recentes\n    metrics = await db.metrics.find(\n        {'user_id': user_id}, \n        {'_id': 0}\n    ).sort('recorded_at', -1).limit(30).to_list(30)\n    \n    optimization = await optimization_engine.analyze_and_optimize(user_id, {'metrics': metrics})\n    \n    return {'status': 'success', 'optimization': optimization}\n\n# CAMADA 6: CRM Inteligente\n@api_router.get(\"/crm/leads\")
+async def get_crm_leads(user_id: str = Depends(get_current_user)):
+    \"\"\"Lista leads no CRM\"\"\"
+    leads = await db.crm_leads.find({'user_id': user_id}, {'_id': 0}).to_list(100)\n    \n    # Agrupar por temperatura\n    frios = [l for l in leads if l.get('temperatura') == 'frio']\n    mornos = [l for l in leads if l.get('temperatura') == 'morno']\n    quentes = [l for l in leads if l.get('temperatura') == 'quente']\n    \n    return {\n        'total': len(leads),\n        'frios': frios,\n        'mornos': mornos,\n        'quentes': quentes\n    }\n\n@api_router.post(\"/crm/classify-lead\")
+async def classify_lead(lead_data: Dict[str, Any], user_id: str = Depends(get_current_user)):
+    \"\"\"Classifica lead automaticamente\"\"\"
+    lead_data['user_id'] = user_id\n    classification = await intelligent_crm.classify_lead(lead_data)\n    \n    return {'status': 'success', 'classification': classification}\n\n# CAMADA 7: Atendimento Omnichannel\n@api_router.post(\"/omnichannel/message\")
+async def handle_customer_message(data: Dict[str, Any], user_id: str = Depends(get_current_user)):
+    \"\"\"Processa mensagem de cliente\"\"\"
+    channel = data.get('channel')  # whatsapp|instagram|messenger|email\n    customer_id = data.get('customer_id')\n    message = data.get('message')\n    \n    # Buscar contexto do neg\u00f3cio\n    context = await db.business_intelligence.find_one(\n        {'user_id': user_id}, \n        {'_id': 0}, \n        sort=[('created_at', -1)]\n    )\n    \n    response = await omnichannel_assistant.handle_message(\n        channel, \n        customer_id, \n        message, \n        context.get('analysis', {}) if context else {}\n    )\n    \n    return response\n\n@api_router.get(\"/omnichannel/conversations/{customer_id}\")
+async def get_conversation_history(customer_id: str, user_id: str = Depends(get_current_user)):
+    \"\"\"Busca hist\u00f3rico de conversa com cliente\"\"\"
+    conversations = await db.conversations.find(\n        {'customer_id': customer_id}, \n        {'_id': 0}\n    ).sort('created_at', -1).to_list(50)\n    \n    return {'conversations': conversations}\n\n# Include router
 app.include_router(api_router)
 
 # Health check endpoint at root level (required for Kubernetes)
