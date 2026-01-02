@@ -28,6 +28,11 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/oauth/callback" element={
+            <ProtectedRoute>
+              <OAuthCallbackPage />
+            </ProtectedRoute>
+          } />
           <Route path="/onboarding" element={
             <ProtectedRoute>
               <OnboardingPage />
