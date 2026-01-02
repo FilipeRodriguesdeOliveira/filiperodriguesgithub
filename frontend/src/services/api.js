@@ -37,5 +37,21 @@ export const api = {
   authorizeOAuthPlatform: (platform) => axios.get(`${API}/oauth/${platform}/authorize`, { headers: getAuthHeader() }),
   getOAuthConnections: () => axios.get(`${API}/oauth/connections`, { headers: getAuthHeader() }),
   disconnectOAuthPlatform: (platform) => axios.delete(`${API}/oauth/${platform}`, { headers: getAuthHeader() }),
-  syncOAuthPlatform: (platform) => axios.post(`${API}/oauth/${platform}/sync`, {}, { headers: getAuthHeader() })
+  syncOAuthPlatform: (platform) => axios.post(`${API}/oauth/${platform}/sync`, {}, { headers: getAuthHeader() }),
+
+  // AI Engines (7 Camadas)
+  runMarketIntelligence: () => axios.post(`${API}/ai/market-intelligence`, {}, { headers: getAuthHeader() }),
+  createMarketingStrategy: () => axios.post(`${API}/ai/create-strategy`, {}, { headers: getAuthHeader() }),
+  createAICampaigns: () => axios.post(`${API}/ai/create-campaigns`, {}, { headers: getAuthHeader() }),
+  getPendingCampaigns: () => axios.get(`${API}/ai/campaigns/pending`, { headers: getAuthHeader() }),
+  approveCampaign: (campaignId) => axios.post(`${API}/ai/campaigns/${campaignId}/approve`, {}, { headers: getAuthHeader() }),
+  runOptimization: () => axios.post(`${API}/ai/optimize`, {}, { headers: getAuthHeader() }),
+  
+  // CRM
+  getCRMLeads: () => axios.get(`${API}/crm/leads`, { headers: getAuthHeader() }),
+  classifyLead: (leadData) => axios.post(`${API}/crm/classify-lead`, leadData, { headers: getAuthHeader() }),
+  
+  // Omnichannel
+  sendMessage: (data) => axios.post(`${API}/omnichannel/message`, data, { headers: getAuthHeader() }),
+  getConversations: (customerId) => axios.get(`${API}/omnichannel/conversations/${customerId}`, { headers: getAuthHeader() })
 };
