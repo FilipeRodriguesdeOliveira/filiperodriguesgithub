@@ -296,6 +296,15 @@ async def collect_mock_data(user_id: str, platform: str):
         }
     }
     
+    # For website, try to scrape real data
+    if platform == 'website':
+        connection = await db.connections.find_one({'user_id': user_id, 'platform': 'website'})
+        if connection and connection.get('credentials', {}).get('url'):
+            url = connection['credentials']['url']
+            scraped_data = await scrape_website_data(url)
+            if scraped_data:
+                mock_data['website'] = scraped_data
+    
     data_doc = {
         'id': str(uuid.uuid4()),
         'user_id': user_id,
@@ -310,6 +319,53 @@ async def collect_mock_data(user_id: str, platform: str):
         {'user_id': user_id, 'platform': platform},
         {'$set': {'last_sync': datetime.now(timezone.utc).isoformat()}}
     )
+
+async def scrape_website_data(url: str) -> dict:
+    """Scrape basic data from website"""
+    try:
+        import httpx
+        from bs4 import BeautifulSoup
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, follow_redirects=True)
+            
+            if response.status_code != 200:
+                return None
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract basic info
+            title = soup.find('title')
+            title_text = title.get_text() if title else 'No title'
+            
+            # Extract meta description
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            description = meta_desc.get('content') if meta_desc else ''
+            
+            # Count pages/products
+            links = soup.find_all('a', href=True)
+            unique_pages = set([link['href'] for link in links if link['href'].startswith('/')])
+            
+            # Look for product indicators
+            product_keywords = ['produto', 'product', 'comprar', 'buy', 'shop', 'loja']
+            products_found = any(keyword in response.text.lower() for keyword in product_keywords)
+            
+            # Extract text content
+            text_content = soup.get_text()
+            words = text_content.split()
+            
+            return {
+                'url': url,
+                'title': title_text,
+                'description': description,
+                'estimated_pages': len(unique_pages),
+                'has_ecommerce': products_found,
+                'content_length': len(words),
+                'scraped_at': datetime.now(timezone.utc).isoformat()
+            }
+    except Exception as e:
+        logger.error(f"Website scraping error: {str(e)}")
+        return None
 
 @api_router.get("/data-collection", response_model=List[DataCollection])
 async def get_data_collection(user_id: str = Depends(get_current_user)):
