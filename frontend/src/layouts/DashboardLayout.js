@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Brain, LayoutDashboard, Link as LinkIcon, Target, Database, Sparkles, BarChart3, LogOut } from 'lucide-react';
+import { Brain, LayoutDashboard, Link as LinkIcon, Target, Database, Sparkles, BarChart3, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function DashboardLayout() {
