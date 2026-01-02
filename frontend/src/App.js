@@ -18,6 +18,7 @@ import AISpecialistsPage from "@/pages/AISpecialistsPage";
 import CampaignsPage from "@/pages/CampaignsPage";
 import PlatformIntegrationsPage from "@/pages/PlatformIntegrationsPage";
 import OnboardingPage from "@/pages/OnboardingPage";
+import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 
 function App() {
   return (
