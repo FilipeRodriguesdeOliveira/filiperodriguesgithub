@@ -530,7 +530,11 @@ async def oauth_callback(platform: str, code: str, state: str):
     user_id = state_data['user_id']
     
     # Exchange code for token
-    callback_url = os.environ.get('BACKEND_URL', 'http://localhost:8001') + f"/api/oauth/{platform}/callback"
+    backend_url = os.environ.get('BACKEND_URL')
+    if not backend_url:
+        raise HTTPException(status_code=500, detail="BACKEND_URL not configured")
+    
+    callback_url = backend_url + f"/api/oauth/{platform}/callback"
     token_data = await oauth_service.exchange_code_for_token(platform, code, callback_url)
     
     if not token_data:
