@@ -14,6 +14,7 @@ import jwt
 import bcrypt
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import asyncio
+from oauth_service import OAuthService
 
 # Setup logger
 logger = logging.getLogger(__name__)
