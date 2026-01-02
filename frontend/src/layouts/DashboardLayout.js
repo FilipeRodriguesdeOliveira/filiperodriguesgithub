@@ -16,6 +16,7 @@ export default function DashboardLayout() {
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
     { path: '/dashboard/connections', icon: LinkIcon, label: 'Conexões' },
+    { path: '/dashboard/platform-integrations', icon: Shield, label: 'Integrações OAuth' },
     { path: '/dashboard/goals', icon: Target, label: 'Objetivos' },
     { path: '/dashboard/data', icon: Database, label: 'Dados' },
     { path: '/dashboard/ai-brain', icon: Brain, label: 'IA Cérebro' },
