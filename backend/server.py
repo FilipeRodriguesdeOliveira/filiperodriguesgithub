@@ -569,9 +569,9 @@ async def disconnect_platform(platform: str, user_id: str = Depends(get_current_
         raise HTTPException(status_code=404, detail=\"Connection not found\")
     return {'status': 'disconnected', 'platform': platform}
 
-@api_router.post(\"/oauth/{platform}/sync\")
+@api_router.post("/oauth/{platform}/sync")
 async def sync_platform_data(platform: str, user_id: str = Depends(get_current_user)):
-    \"\"\"Manually trigger data sync for platform\"\"\"
+    """Manually trigger data sync for platform"""
     token = await oauth_service.get_decrypted_token(user_id, platform)
     if not token:
         raise HTTPException(status_code=404, detail=\"Platform not connected\")
