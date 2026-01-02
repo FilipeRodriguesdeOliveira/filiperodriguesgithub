@@ -30,5 +30,12 @@ export const api = {
 
   // Metrics
   getMetrics: () => axios.get(`${API}/metrics`, { headers: getAuthHeader() }),
-  getDashboardStats: () => axios.get(`${API}/dashboard/stats`, { headers: getAuthHeader() })
+  getDashboardStats: () => axios.get(`${API}/dashboard/stats`, { headers: getAuthHeader() }),
+
+  // OAuth Platform Integrations
+  getOAuthPlatforms: () => axios.get(`${API}/oauth/platforms`, { headers: getAuthHeader() }),
+  authorizeOAuthPlatform: (platform) => axios.get(`${API}/oauth/${platform}/authorize`, { headers: getAuthHeader() }),
+  getOAuthConnections: () => axios.get(`${API}/oauth/connections`, { headers: getAuthHeader() }),
+  disconnectOAuthPlatform: (platform) => axios.delete(`${API}/oauth/${platform}`, { headers: getAuthHeader() }),
+  syncOAuthPlatform: (platform) => axios.post(`${API}/oauth/${platform}/sync`, {}, { headers: getAuthHeader() })
 };
