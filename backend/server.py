@@ -640,6 +640,15 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
 # Include router
 app.include_router(api_router)
 
+# Include AI routers (7 Camadas do ELION MARKET 360)
+ai_router = create_ai_router(db, get_current_user)
+crm_router = create_crm_router(db, get_current_user)
+omnichannel_router = create_omnichannel_router(db, get_current_user)
+
+app.include_router(ai_router)
+app.include_router(crm_router)
+app.include_router(omnichannel_router)
+
 # Health check endpoint at root level (required for Kubernetes)
 @app.get("/health")
 async def health_check():
