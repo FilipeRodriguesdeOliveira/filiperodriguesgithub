@@ -597,7 +597,7 @@ async def sync_platform_data(platform: str, user_id: str = Depends(get_current_u
     return {'status': 'synced', 'platform': platform, 'data': data}
 
 async def collect_platform_data(user_id: str, platform: str):
-    \"\"\"Background task to collect data from platform\"\"\"
+    """Background task to collect data from platform"""
     try:
         token = await oauth_service.get_decrypted_token(user_id, platform)
         if token:
