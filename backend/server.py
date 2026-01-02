@@ -515,9 +515,9 @@ async def authorize_platform(platform: str, user_id: str = Depends(get_current_u
     
     return {'authorization_url': auth_url}
 
-@api_router.get(\"/oauth/{platform}/callback\")
+@api_router.get("/oauth/{platform}/callback")
 async def oauth_callback(platform: str, code: str, state: str):
-    \"\"\"Handle OAuth callback from platform\"\"\"
+    """Handle OAuth callback from platform"""
     # Verify state token
     state_data = oauth_service.verify_state_token(state)
     if not state_data:
