@@ -521,22 +521,22 @@ async def oauth_callback(platform: str, code: str, state: str):
     # Verify state token
     state_data = oauth_service.verify_state_token(state)
     if not state_data:
-        raise HTTPException(status_code=400, detail=\"Invalid state token\")
+        raise HTTPException(status_code=400, detail="Invalid state token")
     
     user_id = state_data['user_id']
     
     # Exchange code for token
-    callback_url = os.environ.get('BACKEND_URL', 'http://localhost:8001') + f\"/api/oauth/{platform}/callback\"
+    callback_url = os.environ.get('BACKEND_URL', 'http://localhost:8001') + f"/api/oauth/{platform}/callback"
     token_data = await oauth_service.exchange_code_for_token(platform, code, callback_url)
     
     if not token_data:
-        raise HTTPException(status_code=400, detail=\"Failed to exchange authorization code\")
+        raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
     
     # Get user info from platform
     user_info = await oauth_service.get_user_info(platform, token_data['access_token'])
     
     if not user_info:
-        raise HTTPException(status_code=400, detail=\"Failed to fetch user information\")
+        raise HTTPException(status_code=400, detail="Failed to fetch user information")
     
     # Store connection
     connection_id = await oauth_service.store_connection(user_id, platform, token_data, user_info)
