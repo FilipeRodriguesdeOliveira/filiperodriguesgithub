@@ -482,7 +482,7 @@ oauth_service = OAuthService(db)
 
 @api_router.get("/oauth/platforms")
 async def get_available_platforms():
-    \"\"\"List available OAuth platforms for integration\"\"\"
+    """List available OAuth platforms for integration"""
     from oauth_config import OAUTH_PLATFORMS
     return {
         'platforms': [
@@ -498,7 +498,7 @@ async def get_available_platforms():
 
 @api_router.get("/oauth/{platform}/authorize")
 async def authorize_platform(platform: str, user_id: str = Depends(get_current_user)):
-    \"\"\"Initiate OAuth flow for platform\"\"\"
+    """Initiate OAuth flow for platform"""
     from oauth_config import OAUTH_PLATFORMS
     
     if platform not in OAUTH_PLATFORMS:
