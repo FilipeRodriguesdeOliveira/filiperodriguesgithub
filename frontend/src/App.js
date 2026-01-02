@@ -37,6 +37,7 @@ function App() {
           >
             <Route index element={<DashboardOverview />} />
             <Route path="connections" element={<ConnectionsPage />} />
+            <Route path="platform-integrations" element={<PlatformIntegrationsPage />} />
             <Route path="goals" element={<GoalsPage />} />
             <Route path="data" element={<DataCollectionPage />} />
             <Route path="ai-brain" element={<AIBrainPage />} />
