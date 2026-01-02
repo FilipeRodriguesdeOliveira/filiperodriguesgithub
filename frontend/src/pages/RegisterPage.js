@@ -19,7 +19,7 @@ export default function RegisterPage() {
     try {
       await register(formData.email, formData.password, formData.name);
       toast.success('Conta criada com sucesso!');
-      navigate('/dashboard');
+      navigate('/onboarding');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao criar conta');
     } finally {
