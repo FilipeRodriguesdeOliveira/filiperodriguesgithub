@@ -81,3 +81,9 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+
+# YouTube upload credentials (never commit)
+client_secret*.json
+token.json
+.config/youtube-upload/
+*.hook.txt
