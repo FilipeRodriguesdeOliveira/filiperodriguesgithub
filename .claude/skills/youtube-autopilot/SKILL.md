@@ -25,7 +25,7 @@ na ordem, passe a saída adiante e pare nos portões de aprovação.
 
 | # | Etapa | Ferramenta | Saída |
 |---|-------|-----------|-------|
-| 1 | Pesquisa de demanda e concorrentes | `youtube` → `/youtube ideate`, `/youtube competitor`; `youtube-full` para buscar vídeos e transcrições dos concorrentes | 10 ideias ranqueadas por demanda × intenção de compra |
+| 1 | Pesquisa de demanda e concorrentes | `last30days <tema do nicho>` (o que o público reclamou/perguntou nos últimos 30 dias em Reddit, X, YouTube, TikTok); `youtube` → `/youtube ideate`, `/youtube competitor`; `youtube-full` para transcrições dos concorrentes | 10 ideias ranqueadas por demanda × intenção de compra, cada uma com a frase real do público que a originou |
 | 2 | Roteiro com retenção | `youtube` → `/youtube script` + `/youtube hook` | Roteiro com gancho de 0–30 s e CTA para o destino do lead |
 | 3 | Produção | Gravação do usuário **ou** `remotion-best-practices` (motion/listas) **ou** Kling AI / HeyGen (IA) | `master.mp4` |
 | 4 | Cortes verticais | `video-factory` → `make_short.py` (3–8 cortes) | `short_XX.mp4` |
